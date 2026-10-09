@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDM Core</title>
+
+    <script src="./assets/tailwindcss.js"></script>
+
+    <script src="./assets/react.development.js"></script>
+    <script src="./assets/react-dom.development.js"></script>
+
+    <script src="./assets/babel.min.js"></script>
+    <script src="./assets/game_module.js" type="text/babel"></script>
+    <script src="./assets/three.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+        body {
+            margin: 0;
+            background-color: #020617;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.loaded {
+            opacity: 1;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .scroller::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        .scroller::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scroller::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.5);
+            border-radius: 2px;
+        }
+
+        .scroller::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 0.8);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 20px -1px rgba(0, 0, 0, 0.4);
+        }
+
+        .table-row-glass {
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .table-row-glass:hover {
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        .bg-scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.4;
+        }
+
+        .icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            display: inline-block;
+            fill: currentColor;
+        }
+
+        .status-dot {
+            height: 6px;
+            width: 6px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0;
+            position: relative;
+        }
+
+        .status-success {
+            background: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+        }
+
+        .status-running {
+            background: #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+            animation: pulse-glow 2s infinite;
+        }
+
+        .status-ready {
+            background: #f59e0b;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.55);
+        }
+
+        .status-failed {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+        }
+
+        .status-queued {
+            background: #64748b;
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                opacity: 1;
+                box-shadow: 0 0 5px rgba(56, 189, 248, 0.4);
+            }
+
+            50% {
+                opacity: 0.8;
+                box-shadow: 0 0 15px rgba(56, 189, 248, 0.8);
+            }
+
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 5px rgba(56, 189, 248, 0.4);
+            }
+        }
+
+        .timeline-line-active {
+            background: linear-gradient(to bottom, #0891b2 0%, #22d3ee 50%, rgba(34, 211, 238, 0.1) 100%);
+        }
+
+        .step-card-active {
+            background: linear-gradient(90deg, rgba(8, 145, 178, 0.15) 0%, rgba(8, 145, 178, 0) 100%);
+            border-left: 2px solid #22d3ee;
+        }
+
+        .step-card-selected {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+            border-left: 2px solid #475569;
+        }
+
+        .halo-ring {
+            box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.3), 0 0 15px rgba(34, 211, 238, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-scanline"></div>
+    <div
+        class="fixed inset-0 pointer-events-none z-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(2,6,23,0.8)_100%)]">
+    </div>
+
+    <div id="root" class="h-screen w-screen relative z-10 flex flex-col p-5 gap-5"></div>
+
+    <script type="text/babel">
+document.body.classList.add('loaded');
+const {
+  useState,
+  useEffect,
+  useRef,
+  useCallback
+} = React;
+const Icons = {
+  play: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M8 5v14l11-7z" /></svg>,
+  pause: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>,
+  stop: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M6 6h12v12H6z" /></svg>,
+  folder: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" /></svg>,
+  check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="w-3 h-3"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+  refresh: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>,
+  copy: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+};
+const STATUS_META = {
+  success: {
+    label: 'SUCCESS',
+    dotClass: 'bg-emerald-500 shadow-emerald-500/50',
+    pillClass: 'bg-emerald-500/10 border-emerald-400/20 text-emerald-300'
+  },
+  running: {
+    label: 'RUNNING',
+    dotClass: 'bg-cyan-400 shadow-cyan-400/50 animate-pulse',
+    pillClass: 'bg-cyan-500/10 border-cyan-400/20 text-cyan-300'
+  },
+  ready: {
+    label: 'READY',
+    dotClass: 'bg-amber-400 shadow-amber-400/60',
+    pillClass: 'bg-amber-500/10 border-amber-400/25 text-amber-200'
+  },
+  failed: {
+    label: 'FAILED',
+    dotClass: 'bg-rose-500 shadow-rose-500/50',
+    pillClass: 'bg-rose-500/10 border-rose-400/20 text-rose-300'
+  },
+  queued: {
+    label: 'QUEUED',
+    dotClass: 'bg-slate-600 shadow-slate-900/80',
+    pillClass: 'bg-slate-800/40 border-slate-700/50 text-slate-400'
+  }
+};
+const getStatusMeta = status => STATUS_META[status] || STATUS_META.queued;
+const LogContextMenu = ({
+  x,
+  y,
+  onCopy,
+  onClose
+}) => {
+  const menuRef = useRef(null);
+  useEffect(() => {
+    const handler = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+  return ReactDOM.createPortal(<div ref={menuRef} className="fixed z-[9999]" data-log-ctx="1" style={{
+    left: x,
+    top: y
+  }}>
+                    <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl shadow-black/60 py-1 min-w-[140px] overflow-hidden">
+                        <button onClick={onCopy} className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[11px] text-slate-300 hover:bg-cyan-500/15 hover:text-white transition-colors font-medium">
+                            {Icons.copy}
+                            <span>Copy</span>
+                            <span className="ml-auto text-[9px] text-slate-600 font-mono">Ctrl+C</span>
+                        </button>
+                    </div>
+                </div>, document.body);
+};
+const StarField = () => {
+  const mountRef = useRef(null);
+  useEffect(() => {
+    if (!mountRef.current) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.z = 100;
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    mountRef.current.appendChild(renderer.domElement);
+    const starsGeo = new THREE.BufferGeometry();
+    const starsCount = 1500;
+    const posArray = new Float32Array(starsCount * 3);
+    for (let i = 0; i < starsCount * 3; i++) posArray[i] = (Math.random() - 0.5) * 500;
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const material = new THREE.PointsMaterial({
+      size: 0.7,
+      color: 0x94a3b8,
+      transparent: true,
+      opacity: 0.6
+    });
+    const stars = new THREE.Points(starsGeo, material);
+    scene.add(stars);
+    const animate = () => {
+      requestAnimationFrame(animate);
+      stars.rotation.y += 0.0003;
+      stars.position.z += 0.02;
+      if (stars.position.z > 50) stars.position.z = 0;
+      renderer.render(scene, camera);
+    };
+    animate();
+  }, []);
+  return <div ref={mountRef} className="fixed top-0 left-0 w-full h-full -z-20" />;
+};
+const StatCard = ({
+  label,
+  value,
+  colorClass
+}) => <div className="flex flex-col px-4 lg:px-6 py-2.5 border-r border-white/5 last:border-0 relative overflow-hidden group min-w-[80px]">
+                <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-${colorClass.split('-')[1]}-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1 truncate">{label}</span>
+                <span className={`text-xl lg:text-2xl font-mono font-medium ${colorClass} tracking-tighter`}>{value}</span>
+            </div>;
+const App = () => {
+  const [data, setData] = useState({
+    stats: {
+      total: 0,
+      queued: 0,
+      running: 0,
+      success: 0,
+      failed: 0
+    },
+    tasks: [],
+    logs: [],
+    steps: [],
+    active_step_idx: 0,
+    is_running: false,
+    can_continue: false,
+    pause_requested: false,
+    is_paused: false,
+    can_resume: false,
+    selected_step_indices: [],
+    finished_step_indices: [],
+    skipped_step_indices: [],
+    start_button_label: 'START',
+    pause_button_label: 'PAUSE',
+    pipeline_note: ''
+  });
+  const [bridgeReady, setBridgeReady] = useState(Boolean(window.pywebview?.api));
+  const [notice, setNotice] = useState(null);
+  const [selectedSteps, setSelectedSteps] = useState({});
+  const [resumeRunId, setResumeRunId] = useState("");
+  const logContainerRef = useRef(null);
+  const isUserScrolledUp = useRef(false);
+  const noticeTimerRef = useRef(null);
+  const [selectedLines, setSelectedLines] = useState(new Set());
+  const [lastClickedLine, setLastClickedLine] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [copyToast, setCopyToast] = useState(false);
+  const stripHtml = useCallback(html => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  }, []);
+  const getLogText = useCallback(log => {
+    return stripHtml(log);
+  }, [stripHtml]);
+  const copyToClipboard = useCallback(text => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;left:-9999px;top:-9999px;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {}
+    document.body.removeChild(ta);
+    if (ok) {
+      setCopyToast(true);
+      setTimeout(() => setCopyToast(false), 1500);
+    }
+  }, []);
+  const handleCopyAll = useCallback(() => {
+    const allText = (data.logs || []).map((log, i) => `${(i + 1).toString().padStart(3, '0')}  ${getLogText(log)}`).join('\n');
+    copyToClipboard(allText);
+  }, [data.logs, getLogText, copyToClipboard]);
+  const showNotice = useCallback((message, type = 'error') => {
+    if (!message) return;
+    setNotice({
+      message,
+      type
+    });
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 5000);
+  }, []);
+  const handleLineClick = useCallback((idx, e) => {
+    logContainerRef.current?.focus();
+    if (e.shiftKey && lastClickedLine !== null) {
+      const start = Math.min(lastClickedLine, idx);
+      const end = Math.max(lastClickedLine, idx);
+      const newSet = new Set(selectedLines);
+      for (let i = start; i <= end; i++) newSet.add(i);
+      setSelectedLines(newSet);
+    } else if (e.ctrlKey || e.metaKey) {
+      const newSet = new Set(selectedLines);
+      if (newSet.has(idx)) newSet.delete(idx);else newSet.add(idx);
+      setSelectedLines(newSet);
+      setLastClickedLine(idx);
+    } else {
+      setSelectedLines(new Set([idx]));
+      setLastClickedLine(idx);
+    }
+  }, [lastClickedLine, selectedLines]);
+  const handleLineContextMenu = useCallback((idx, e) => {
+    e.preventDefault();
+    if (!selectedLines.has(idx)) {
+      setSelectedLines(new Set([idx]));
+      setLastClickedLine(idx);
+    }
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      lineIdx: idx
+    });
+  }, [selectedLines]);
+  const selectedLinesRef = useRef(selectedLines);
+  selectedLinesRef.current = selectedLines;
+  const handleContextCopy = useCallback(() => {
+    const sel = selectedLinesRef.current;
+    const lines = [...sel].sort((a, b) => a - b);
+    const text = lines.map(i => {
+      const log = data.logs[i];
+      return log ? `${(i + 1).toString().padStart(3, '0')}  ${getLogText(log)}` : '';
+    }).join('\n');
+    copyToClipboard(text);
+    setContextMenu(null);
+  }, [data.logs, getLogText, copyToClipboard]);
+  useEffect(() => {
+    const handler = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedLines.size > 0) {
+        const el = logContainerRef.current;
+        if (el && el.contains(document.activeElement === document.body ? el : document.activeElement)) {
+          const nativeSelection = window.getSelection();
+          if (nativeSelection && nativeSelection.toString().length > 0) return;
+          e.preventDefault();
+          const lines = [...selectedLines].sort((a, b) => a - b);
+          const text = lines.map(i => {
+            const log = data.logs[i];
+            return log ? `${(i + 1).toString().padStart(3, '0')}  ${getLogText(log)}` : '';
+          }).join('\n');
+          copyToClipboard(text);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [selectedLines, data.logs, getLogText, copyToClipboard]);
+  useEffect(() => {
+    if (contextMenu) {
+      const el = logContainerRef.current;
+      const close = () => setContextMenu(null);
+      el?.addEventListener('scroll', close);
+      return () => el?.removeEventListener('scroll', close);
+    }
+  }, [contextMenu]);
+  useEffect(() => {
+    const handler = e => {
+      const el = logContainerRef.current;
+      if (e.target.closest && e.target.closest('[data-log-ctx]')) return;
+      if (el && !el.contains(e.target)) {
+        setSelectedLines(new Set());
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
+  useEffect(() => {
+    if (!data.steps?.length) return;
+    const backendSelection = Array.isArray(data.selected_step_indices) ? new Set(data.selected_step_indices) : null;
+    setSelectedSteps(prev => {
+      const next = {
+        ...prev
+      };
+      let changed = false;
+      data.steps.forEach((step, idx) => {
+        if (next[idx] === undefined) {
+          next[idx] = backendSelection ? backendSelection.has(idx) : step.selected !== false;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [data.steps, data.selected_step_indices]);
+  useEffect(() => {
+    const initData = async () => {
+      const api = window.pywebview?.api;
+      setBridgeReady(Boolean(api));
+      if (api) {
+        try {
+          const state = await api.get_full_state();
+          setData(state);
+        } catch (e) {
+          console.error("Init Error:", e);
+          showNotice(`Init failed: ${e?.message || e}`);
+        }
+      }
+    };
+    setTimeout(initData, 300);
+    const interval = setInterval(async () => {
+      const api = window.pywebview?.api;
+      setBridgeReady(Boolean(api));
+      if (api) {
+        try {
+          const state = await api.get_full_state();
+          setData(state);
+        } catch (e) {}
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [showNotice]);
+  useEffect(() => {
+    const el = logContainerRef.current;
+    if (el && !isUserScrolledUp.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [data.logs]);
+  useEffect(() => {
+    if (!Array.isArray(data.selected_step_indices)) return;
+    const count = data.steps?.length || 8;
+    const selectedSet = new Set(data.selected_step_indices);
+    const next = {};
+    for (let idx = 0; idx < count; idx++) {
+      next[idx] = selectedSet.has(idx);
+    }
+    setSelectedSteps(next);
+  }, [(data.selected_step_indices || []).join(','), data.steps?.length]);
+  const handleLogScroll = e => {
+    const {
+      scrollTop,
+      scrollHeight,
+      clientHeight
+    } = e.target;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    isUserScrolledUp.current = distanceToBottom > 20;
+  };
+  const getSelectedStepIndices = useCallback((override = selectedSteps) => {
+    const count = data.steps?.length || 8;
+    const indices = [];
+    for (let idx = 0; idx < count; idx++) {
+      if (override[idx] !== false) indices.push(idx);
+    }
+    return indices;
+  }, [data.steps, selectedSteps]);
+  const syncStepSelection = useCallback(async nextSelection => {
+    const api = window.pywebview?.api;
+    if (!api?.update_step_selection) return;
+    try {
+      await api.update_step_selection(getSelectedStepIndices(nextSelection));
+    } catch (e) {
+      showNotice(`Selection sync failed: ${e?.message || e}`);
+    }
+  }, [getSelectedStepIndices, showNotice]);
+  const handleToggleStep = useCallback(idx => {
+    if (data.is_running) {
+      showNotice('Step selection was updated. It affects only steps that have not started yet.', 'info');
+    }
+    setSelectedSteps(prev => {
+      const next = {
+        ...prev,
+        [idx]: prev[idx] === false
+      };
+      syncStepSelection(next);
+      return next;
+    });
+  }, [data.is_running, showNotice, syncStepSelection]);
+  const handleStart = async () => {
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet. Wait a moment and try again.");
+      return;
+    }
+    try {
+      const result = data.is_running && data.pause_requested ? await api.resume_pipeline() : await api.start_pipeline(getSelectedStepIndices());
+      if (result?.status === 'error') {
+        showNotice(result.message || "Pipeline failed to start.");
+      }
+      const state = await api.get_full_state();
+      setData(state);
+    } catch (e) {
+      showNotice(`Start failed: ${e?.message || e}`);
+    }
+  };
+  const handlePause = async () => {
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet.");
+      return;
+    }
+    try {
+      const result = await api.pause_pipeline();
+      if (result?.status === 'error') {
+        showNotice(result.message || "Pause request failed.");
+      }
+      const state = await api.get_full_state();
+      setData(state);
+    } catch (e) {
+      showNotice(`Pause failed: ${e?.message || e}`);
+    }
+  };
+  const handleRerunStep = async (idx, cleanName) => {
+    if (data.is_running) return;
+    const affected = Array.from({
+      length: (data.steps?.length || 8) - idx
+    }, (_, offset) => idx + offset + 1).join(', ');
+    const confirmed = window.confirm(`Rerun Step ${idx + 1}: ${cleanName}?\n\nThis will delete outputs from Step ${affected} in the current run, then run forward using the checked steps.\n\nThis cannot be undone.`);
+    if (!confirmed) return;
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet.");
+      return;
+    }
+    const nextSelection = {
+      ...selectedSteps,
+      [idx]: true
+    };
+    try {
+      setSelectedSteps(nextSelection);
+      const result = await api.rerun_step(idx, getSelectedStepIndices(nextSelection));
+      if (result?.status === 'error') {
+        showNotice(result.message || "Rerun failed to start.");
+      }
+      const state = await api.get_full_state();
+      setData(state);
+    } catch (e) {
+      showNotice(`Rerun failed: ${e?.message || e}`);
+    }
+  };
+  const handleStop = async () => {
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet.");
+      return;
+    }
+    try {
+      await api.stop_pipeline();
+      const state = await api.get_full_state();
+      setData(state);
+    } catch (e) {
+      showNotice(`Stop failed: ${e?.message || e}`);
+    }
+  };
+  const handleLogs = async () => {
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet.");
+      return;
+    }
+    try {
+      await api.open_log_dir();
+    } catch (e) {
+      showNotice(`Open logs failed: ${e?.message || e}`);
+    }
+  };
+  const handleIdentifyResume = async () => {
+    if (data.is_running) return;
+    const runToken = resumeRunId.trim();
+    if (!runToken) {
+      showNotice("Enter a run folder name or run id fragment first.");
+      return;
+    }
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api?.identify_resume_run) {
+      showNotice("Desktop bridge does not expose resume detection yet.");
+      return;
+    }
+    try {
+      const result = await api.identify_resume_run(runToken);
+      if (result?.status === 'error') {
+        showNotice(result.message || "Run identification failed.");
+      } else {
+        showNotice(result.message || "Run identified.", 'info');
+      }
+      const state = await api.get_full_state();
+      setData(state);
+    } catch (e) {
+      showNotice(`Run identification failed: ${e?.message || e}`);
+    }
+  };
+  const handleNewRun = async () => {
+    if (data.is_running) return;
+    const api = window.pywebview?.api;
+    setBridgeReady(Boolean(api));
+    if (!api) {
+      showNotice("Desktop bridge is not ready yet.");
+      return;
+    }
+    try {
+      await api.reset_view();
+      const state = await api.get_full_state();
+      setSelectedSteps({});
+      setResumeRunId("");
+      setData(state);
+    } catch (e) {
+      showNotice(`Reset failed: ${e?.message || e}`);
+    }
+  };
+  const [showGames, setShowGames] = useState(false);
+  const [filter, setFilter] = useState("");
+  useEffect(() => {
+    if (filter === 'cjw666') {
+      setShowGames(true);
+      setFilter('');
+    }
+  }, [filter]);
+  const getDisplayStatus = useCallback(task => {
+    if (task.status !== 'queued') return task.status;
+    const taskStep = typeof task.step === 'number' ? task.step : 0;
+    const isReady = (data.is_running || data.can_continue) && taskStep <= data.active_step_idx;
+    return isReady ? 'ready' : 'queued';
+  }, [data.active_step_idx, data.can_continue, data.is_running]);
+  const getDisplayDetail = useCallback((task, displayStatus) => {
+    if (displayStatus !== 'ready') return task.detail;
+    return data.is_running ? 'Completed previous step, awaiting worker slot' : 'Completed previous step, ready to continue';
+  }, [data.is_running]);
+  const displayTasks = (data.tasks || []).map(task => {
+    const displayStatus = getDisplayStatus(task);
+    return {
+      ...task,
+      displayStatus,
+      displayDetail: getDisplayDetail(task, displayStatus)
+    };
+  });
+  const readyCount = displayTasks.filter(task => task.displayStatus === 'ready').length;
+  const queuedCount = displayTasks.filter(task => task.displayStatus === 'queued').length;
+  const filteredTasks = displayTasks.filter(t => t.file.toLowerCase().includes(filter.toLowerCase()));
+  return <>
+                    {showGames && window.GameConsole && <window.GameConsole onClose={() => setShowGames(false)} />}
+
+                    <StarField />
+                    <header className="glass-panel h-20 rounded-2xl flex items-center px-6 shrink-0 z-20 overflow-hidden relative justify-between">
+
+                        <div className="flex items-center gap-4 shrink-0 mr-4">
+                            <img src="./logo.png" alt="Logo" className="h-10 w-10 rounded-lg shadow-lg shadow-cyan-500/20 ring-1 ring-white/10 shrink-0 object-cover" />
+                            <div className="flex flex-col justify-center min-w-0">
+                                <h1 className="text-xl font-bold text-slate-100 tracking-tight leading-none mb-1 whitespace-nowrap">TDM Core</h1>
+                                <div className="flex items-center gap-2">
+                                    {data.is_running && <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span>}
+                                    <span className="text-[10px] text-cyan-400 font-mono tracking-widest uppercase opacity-90 whitespace-nowrap">Multi-Agent System</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="hidden md:flex items-center bg-slate-950/30 rounded-lg border border-white/5 backdrop-blur-sm shadow-inner overflow-hidden shrink mx-2">
+                            <StatCard label="Total" value={data.stats.total} colorClass="text-slate-200" />
+                            <StatCard label="Ready" value={readyCount} colorClass="text-amber-300" />
+                            <StatCard label="Queue" value={queuedCount} colorClass="text-slate-400" />
+                            <StatCard label="Run" value={data.stats.running} colorClass="text-cyan-400" />
+                            <StatCard label="Ok" value={data.stats.success} colorClass="text-emerald-400" />
+                            <StatCard label="Fail" value={data.stats.failed} colorClass="text-rose-400" />
+                        </div>
+
+                        <div className="flex gap-3 items-center justify-end shrink-0 ml-auto pl-2">
+                            <div className={`text-[10px] font-mono tracking-wider whitespace-nowrap ${bridgeReady ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`}>
+                                {bridgeReady ? 'BRIDGE READY' : 'BRIDGE CONNECTING'}
+                            </div>
+
+                            <button onClick={handleLogs} disabled={!bridgeReady} className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg transition-all text-xs font-semibold border whitespace-nowrap ${bridgeReady ? 'text-slate-400 hover:text-white hover:bg-white/5 border-transparent hover:border-white/5' : 'text-slate-700 bg-slate-900/20 border-slate-800/50 cursor-not-allowed opacity-50'}`} title="Open Log Folder">
+                                {Icons.folder} <span className="hidden lg:inline">Logs</span>
+                            </button>
+
+                            <button onClick={handleStop} disabled={!bridgeReady || !data.is_running} className={`flex items-center gap-2 px-4 lg:px-5 py-2.5 rounded-lg text-xs font-bold transition-all border shadow-lg whitespace-nowrap ${bridgeReady && data.is_running ? 'bg-rose-950/30 border-rose-500/30 text-rose-400 hover:bg-rose-900/50 hover:border-rose-400/50 cursor-pointer' : 'bg-slate-900/20 border-slate-800/50 text-slate-700 cursor-not-allowed opacity-50'}`}>
+                                {Icons.stop} STOP
+                            </button>
+
+                            <button onClick={handlePause} disabled={!bridgeReady || !data.is_running || data.pause_requested} className={`flex items-center gap-2 px-4 lg:px-5 py-2.5 rounded-lg text-xs font-bold transition-all border shadow-lg whitespace-nowrap ${bridgeReady && data.is_running && !data.pause_requested ? 'bg-amber-950/30 border-amber-500/30 text-amber-300 hover:bg-amber-900/50 hover:border-amber-400/50 cursor-pointer' : 'bg-slate-900/20 border-slate-800/50 text-slate-700 cursor-not-allowed opacity-50'}`}>
+                                {Icons.pause} {data.pause_button_label || 'PAUSE'}
+                            </button>
+
+                            <button onClick={handleStart} disabled={!bridgeReady || data.is_running && !data.pause_requested} className={`flex items-center gap-2 px-5 lg:px-6 py-2.5 rounded-lg text-xs font-bold transition-all border shadow-lg whitespace-nowrap ${bridgeReady && (!data.is_running || data.pause_requested) ? 'bg-gradient-to-r from-cyan-600 to-blue-600 border-cyan-400/30 text-white hover:brightness-110 cursor-pointer shadow-cyan-900/40' : 'bg-slate-900/20 border-slate-800/50 text-slate-700 cursor-not-allowed opacity-50'}`}>
+                                {Icons.play} {data.start_button_label || 'START'}
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="glass-panel rounded-xl px-4 py-3 shrink-0 flex flex-col lg:flex-row lg:items-center gap-3">
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase whitespace-nowrap">Resume Run</span>
+                            <span className={`w-1.5 h-1.5 rounded-full ${data.can_continue ? 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)]' : 'bg-slate-700'}`}></span>
+                        </div>
+                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                            <input type="text" value={resumeRunId} disabled={data.is_running} placeholder="run_20260512_234006_64d3 / 234006 / 64d3" onChange={e => setResumeRunId(e.target.value)} onKeyDown={e => {
+          if (e.key === 'Enter') handleIdentifyResume();
+        }} className={`w-full min-w-0 bg-black/20 border border-slate-700/50 text-[11px] text-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 transition-all font-mono ${data.is_running ? 'opacity-50 cursor-not-allowed' : ''}`} />
+                            <button onClick={handleIdentifyResume} disabled={!bridgeReady || data.is_running || !resumeRunId.trim()} className={`px-4 py-2 rounded-lg text-[10px] font-bold border transition-all whitespace-nowrap ${bridgeReady && !data.is_running && resumeRunId.trim() ? 'text-amber-200 border-amber-500/30 bg-amber-950/30 hover:bg-amber-900/50 hover:border-amber-400/50 cursor-pointer' : 'text-slate-700 border-slate-800/50 bg-slate-900/20 cursor-not-allowed opacity-50'}`}>
+                                IDENTIFY
+                            </button>
+                        </div>
+                        <div className="lg:w-[420px] min-w-0 text-[10px] font-mono text-slate-500 truncate" title={data.pipeline_note || ''}>
+                            {data.can_continue ? data.pipeline_note : 'Enter an existing run folder name or any unique run id fragment.'}
+                        </div>
+                    </div>
+
+                    {notice && <div className={`px-4 py-3 rounded-xl border text-xs font-mono ${notice.type === 'error' ? 'bg-rose-950/30 border-rose-500/30 text-rose-300' : 'bg-cyan-950/30 border-cyan-500/30 text-cyan-300'}`}>
+                            {notice.message}
+                        </div>}
+
+                    {data.pipeline_note && !data.is_running && <div className="px-4 py-3 rounded-xl border text-xs font-mono bg-amber-950/30 border-amber-500/30 text-amber-200">
+                            {data.pipeline_note}
+                        </div>}
+
+                    <div className="flex-1 grid grid-cols-[300px_1fr] gap-6 min-h-0 overflow-hidden pb-2">
+                        <div className="glass-panel rounded-2xl p-0 flex flex-col overflow-hidden">
+                            <div className="p-5 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3 text-cyan-500"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                                    Pipeline Sequence
+                                </h3>
+                                <button onClick={handleNewRun} disabled={!bridgeReady || data.is_running} title="Reset to start a new run" className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded transition-all border ${!bridgeReady || data.is_running ? 'text-slate-700 border-slate-800/50 cursor-not-allowed opacity-40' : 'text-slate-400 border-slate-700/50 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/5 cursor-pointer'}`}>
+                                    {Icons.refresh} NEW RUN
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto scroller relative p-0">
+                                <div className="absolute left-[29px] top-6 bottom-6 w-[2px] bg-slate-800/50 z-0"></div>
+
+                                <div className="flex flex-col relative z-10 py-4">
+                                    {(data.steps || []).map((step, idx) => {
+              const isCurrent = idx === data.active_step_idx;
+              const isRunning = data.is_running;
+              const finishedSteps = Array.isArray(data.finished_step_indices) ? data.finished_step_indices : [];
+              const skippedSteps = Array.isArray(data.skipped_step_indices) ? data.skipped_step_indices : [];
+              const isFinished = finishedSteps.includes(idx) || step.finished === true;
+              const isSkipped = skippedSteps.includes(idx) || step.skipped === true;
+              const isDone = isFinished;
+              const isSelected = selectedSteps[idx] !== false;
+              const canRerun = !data.is_running && isFinished;
+              const cleanName = step.name.replace(/Step \d+:/, '').trim();
+              const isActiveAnimating = isCurrent && isRunning;
+              return <div key={idx} className={`relative group pl-16 pr-5 py-3 transition-all duration-300 ${isActiveAnimating ? 'step-card-active' : isCurrent ? 'step-card-selected' : ''}`}>
+                                                <div className={`absolute left-[20px] top-[50%] -translate-y-[50%] w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-500 z-10 ${isActiveAnimating ? 'border-cyan-400 bg-slate-900 halo-ring scale-110' : isCurrent ? 'border-slate-500 bg-slate-800 scale-100' : isDone ? 'border-cyan-600 bg-cyan-600 scale-90' : 'border-slate-700 bg-slate-900'}`}>
+                                                    {isDone && Icons.check}
+                                                    {isActiveAnimating && <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></div>}
+                                                    {isCurrent && !isRunning && !isDone && <div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div>}
+                                                </div>
+
+                                                {isDone && idx < data.steps.length - 1 && <div className="absolute left-[29px] top-[24px] h-[calc(100%)] w-[2px] bg-cyan-600/50 -z-10"></div>}
+
+                                                {isActiveAnimating && <div className="absolute left-[29px] top-[24px] h-[calc(100%)] w-[2px] timeline-line-active -z-10"></div>}
+
+                                                <div className="flex flex-col flex-1 pl-4 min-w-0">
+                                                    <div className="flex justify-between items-center mb-0.5 gap-2">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <button onClick={() => handleToggleStep(idx)} title={isSelected ? "Step enabled" : "Step unchecked"} className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${isSelected ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200' : 'bg-slate-950/50 border-slate-700 text-transparent hover:border-slate-500'}`}>
+                                                                {Icons.check}
+                                                            </button>
+                                                            <span className={`text-[10px] font-mono font-bold tracking-wider ${isActiveAnimating ? 'text-cyan-400' : isDone ? 'text-cyan-700' : isCurrent ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                                {`0${idx + 1}`}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            {isSkipped && <span className="text-[9px] text-slate-500/80 font-mono">SKIPPED</span>}
+                                                            {!isSkipped && !isSelected && <span className="text-[9px] text-amber-500/80 font-mono">SKIP</span>}
+                                                            {canRerun && <button onClick={() => handleRerunStep(idx, cleanName)} title={`Rerun Step ${idx + 1}`} className="w-6 h-6 rounded border border-slate-700/70 text-slate-500 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-cyan-500/10 flex items-center justify-center transition-all">
+                                                                    {Icons.refresh}
+                                                                </button>}
+                                                            {isActiveAnimating && <span className="text-[9px] text-cyan-500/80 font-mono animate-pulse">PROCESSING</span>}
+                                                            {isCurrent && !isRunning && !isDone && <span className="text-[9px] text-slate-500 font-mono">READY</span>}
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-xs font-medium transition-colors ${isActiveAnimating ? 'text-white' : isDone ? 'text-slate-400' : isCurrent && isSelected ? 'text-slate-300' : 'text-slate-600'}`}>
+                                                        {cleanName}
+                                                    </span>
+                                                    {step.model_info && <div className={`mt-1.5 flex items-start gap-1.5 text-[9px] font-mono tracking-wide leading-tight break-all md:break-words pr-2 ${isActiveAnimating ? 'text-cyan-300' : isDone ? 'text-slate-500' : isCurrent ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-2.5 h-2.5 shrink-0 mt-[1.5px]">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 15.364V21M9.75 15.364V21M12 18h.01M15.364 8.636l4.243-4.243M8.636 8.636L4.393 4.393M12 4.5v-1.5M19.5 12h1.5M4.5 12H3m5.25-3.75h6.5A1.25 1.25 0 0116 9.5v5A1.25 1.25 0 0114.75 15.75h-5.5A1.25 1.25 0 018 14.5v-5A1.25 1.25 0 019.25 8.25z" />
+                                                            </svg>
+                                                            <span>{step.model_info}</span>
+                                                        </div>}
+                                                </div>
+                                            </div>;
+            })}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-5 min-h-0 overflow-hidden">
+                            <div className="glass-panel rounded-2xl flex-1 flex flex-col overflow-hidden min-h-0 relative group">
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/[0.02]">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Tasks</h3>
+                                    <div className="relative">
+                                        <input type="text" placeholder="Filter..." value={filter} className="bg-black/20 border border-slate-700/50 text-[10px] text-slate-300 rounded-full px-3 py-1.5 w-40 focus:outline-none focus:border-cyan-500/50 focus:bg-slate-900/50 transition-all font-mono backdrop-blur-sm" onChange={e => setFilter(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-[2fr_1fr_1fr_2fr] gap-4 px-6 py-3 bg-slate-950/20 text-[9px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
+                                    <div>Filename</div>
+                                    <div>Current Step</div>
+                                    <div>Status</div>
+                                    <div>Detail Message</div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto scroller">
+                                    {filteredTasks.map((task, i) => {
+              const statusMeta = getStatusMeta(task.displayStatus);
+              return <div key={i} className={`grid grid-cols-[2fr_1fr_1fr_2fr] gap-4 px-6 py-3.5 text-xs table-row-glass items-center ${task.displayStatus === 'ready' ? 'bg-amber-500/[0.04]' : ''}`}>
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 shadow-lg ${statusMeta.dotClass}`} />
+                                                    <div className="truncate font-mono text-slate-300 font-medium" title={task.file}>{task.file}</div>
+                                                </div>
+                                                <div>
+                                                    <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] text-slate-400 font-mono">
+                                                        STEP {(task.step || 0) + 1}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.18em] ${statusMeta.pillClass}`}>
+                                                        <span className={`status-dot status-${task.displayStatus}`}></span>
+                                                        <span>{statusMeta.label}</span>
+                                                    </span>
+                                                </div>
+                                                <div className={`truncate font-mono text-[10px] ${task.displayStatus === 'ready' ? 'text-amber-100/80' : 'text-slate-500 opacity-80'}`}>
+                                                    {task.displayDetail}
+                                                </div>
+                                            </div>;
+            })}
+                                    {filteredTasks.length === 0 && <div className="flex flex-col items-center justify-center h-full text-slate-600 opacity-50">
+                                            <div className="mb-2 text-4xl">⚗️</div>
+                                            <div className="text-xs font-mono">NO ACTIVE TASKS</div>
+                                        </div>}
+                                </div>
+                            </div>
+
+                            <div className="glass-panel rounded-2xl h-56 flex flex-col shrink-0 overflow-hidden relative">
+                                <div className="bg-black/30 px-5 py-2 text-[10px] font-mono font-bold text-slate-500 flex justify-between border-b border-white/5 items-center">
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-slate-700 rounded-sm"></span>
+                                        TERMINAL OUTPUT
+                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        {selectedLines.size > 0 && <span className="text-[9px] text-cyan-500/70 font-mono">
+                                                {selectedLines.size} LINE{selectedLines.size > 1 ? 'S' : ''} SELECTED
+                                            </span>}
+                                        <button onClick={handleCopyAll} title="Copy all logs" className="flex items-center gap-1.5 text-slate-500 hover:text-cyan-400 transition-colors px-2 py-0.5 rounded hover:bg-white/5">
+                                            {Icons.copy}
+                                            <span>COPY ALL</span>
+                                        </button>
+                                        <span className={data.is_running ? "text-cyan-500 animate-pulse" : "text-slate-600"}>
+                                            {data.is_paused ? "PAUSED" : data.pause_requested ? "PAUSE PENDING" : data.is_running ? "LIVE FEED" : "IDLE"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div ref={logContainerRef} onScroll={handleLogScroll} tabIndex={0} className="flex-1 overflow-y-auto scroller p-4 font-mono text-[11px] leading-relaxed text-slate-400/90 bg-black/20 focus:outline-none" style={{
+            cursor: 'default'
+          }}>
+                                    {(data.logs || []).map((log, i) => {
+              const isSelected = selectedLines.has(i);
+              return <div key={i} onClick={e => handleLineClick(i, e)} onContextMenu={e => handleLineContextMenu(i, e)} className={`whitespace-nowrap py-0.5 pl-1 rounded border-l-2 transition-colors cursor-pointer select-none ${isSelected ? 'bg-cyan-500/10 border-cyan-500/50' : 'border-transparent hover:bg-white/5 hover:border-slate-700'}`}>
+                                                <span className="text-slate-700 mr-3 select-none w-8 inline-block text-right">{(i + 1).toString().padStart(3, '0')}</span>
+                                                <span dangerouslySetInnerHTML={{
+                  __html: log.replace('ERROR', '<span class="text-rose-400 font-bold">ERROR</span>').replace('SYSTEM', '<span class="text-cyan-400 font-bold">SYSTEM</span>').replace(/\[(.*?)\]/, '<span class="text-slate-600">[$1]</span>')
+                }}></span>
+                                            </div>;
+            })}
+                                </div>
+
+                                {}
+                                {copyToast && <div className="absolute bottom-3 right-3 bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 text-cyan-300 text-[10px] font-mono font-bold px-3 py-1.5 rounded-lg shadow-lg shadow-cyan-900/30 flex items-center gap-1.5 animate-pulse">
+                                        {Icons.check} COPIED
+                                    </div>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {}
+                    {contextMenu && <LogContextMenu x={contextMenu.x} y={contextMenu.y} onCopy={handleContextCopy} onClose={() => setContextMenu(null)} />}
+                </>;
+};
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+
+</html>

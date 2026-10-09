@@ -1,0 +1,15 @@
+openai>=1.0
+pydantic>=2,<3
+python-dotenv>=1.0
+rich>=13.0
+langgraph>=0.2
+jsonpatch>=1.33
+json-repair>=0.25
+tqdm>=4.66
+requests>=2.31
+pandas>=2.0
+numpy>=1.24
+tiktoken>=0.7
+pywebview>=5.0
+Pillow>=10.0
+openpyxl>=3.1
