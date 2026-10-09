@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="704" viewBox="0 0 1200 704" role="img" aria-labelledby="title description">
+  <title id="title">EDM-Agent: three agents, an evidence trail, and a correction loop</title>
+  <desc id="description">The Processing Agent prepares source-tagged text. The Extraction Agent creates typed kinetics records. The Audit and Revision Agent independently checks the draft against the source and applies validated patches. Flagged papers return to extraction with feedback. The Processing Agent then enriches and exports records. A controller routes the stages and limits retries.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="#232323" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <style>
+      text{font-family:'Segoe UI',Arial,sans-serif;fill:#232323}
+      .ink{fill:none;stroke:#232323;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .small{font-size:19px}
+      .label{font-size:20px;font-weight:650}
+      .mono{font-family:Consolas,monospace;font-size:18px}
+    </style>
+  </defs>
+  <rect width="1200" height="704" rx="18" fill="#faf9f5"/>
+  <text x="38" y="43" font-size="15" font-weight="650" letter-spacing="2.3">ENVIRONMENTAL LITERATURE → STRUCTURED DATA</text>
+  <text x="36" y="111" font-size="58" font-weight="800" letter-spacing="-2">EDM-Agent</text>
+  <path d="M39 125Q172 120 302 126" fill="none" stroke="#edb468" stroke-width="7" stroke-linecap="round"/>
+  <text x="434" y="92" font-size="27" font-weight="650">Read. Extract. Question. Refine.</text>
+  <text x="435" y="125" class="small" fill="#62615d">Three agents, with evidence carried through every stage.</text>
+  <path d="M37 164L372 165L375 477L38 480Z" fill="#fff" stroke="#232323" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M432 165L767 163L768 479L430 477Z" fill="#fff" stroke="#232323" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M826 163L1162 165L1161 479L825 477Z" fill="#fff" stroke="#232323" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="65" cy="193" r="15" fill="#dbe9df"/>
+  <text x="60" y="200" class="label">1</text>
+  <text x="92" y="201" class="label">Processing Agent</text>
+  <circle cx="459" cy="193" r="15" fill="#dce7f3"/>
+  <text x="454" y="200" class="label">2</text>
+  <text x="486" y="201" class="label">Extraction Agent</text>
+  <circle cx="855" cy="193" r="15" fill="#f6e5ca"/>
+  <text x="850" y="200" class="label">3</text>
+  <text x="882" y="201" class="label">Audit &amp; Revision Agent</text>
+  <path d="M66 224Q66 218 74 218H343Q351 218 351 226V262Q351 270 343 270H223L207 286L207 270H74Q66 270 66 262Z" fill="#faf9f5" stroke="#232323" stroke-width="2"/>
+  <text x="90" y="251" font-size="22" font-weight="650">“Keep the source close.”</text>
+  <path d="M459 224Q459 218 467 218H735Q743 218 743 226V262Q743 270 735 270H617L600 286L600 270H467Q459 270 459 262Z" fill="#faf9f5" stroke="#232323" stroke-width="2"/>
+  <text x="486" y="251" font-size="22" font-weight="650">“Give each fact a field.”</text>
+  <path d="M851 224Q851 218 859 218H1133Q1141 218 1141 226V262Q1141 270 1133 270H1012L995 286L995 270H859Q851 270 851 262Z" fill="#faf9f5" stroke="#232323" stroke-width="2"/>
+  <text x="889" y="251" font-size="22" font-weight="650">“Show me the evidence.”</text>
+  <g class="ink">
+    <path d="M97 307L146 303L151 364L104 369Z" fill="#f4f3ee"/>
+    <path d="M87 314L137 311L142 374L92 378Z" fill="#fff"/>
+    <path d="M98 331L124 329M100 343L129 341M102 355L120 354"/>
+    <path d="M163 327Q179 319 182 319"/>
+    <path d="M197 355Q176 362 158 357M244 353Q268 345 280 359"/>
+    <rect x="181" y="296" width="68" height="57" rx="19" fill="#dbe9df"/>
+    <path d="M215 296V285M211 285H221"/>
+    <path d="M185 364Q214 353 244 366L253 388H176Z" fill="#dbe9df"/>
+    <path d="M188 388L184 397M239 388L242 398"/>
+    <path d="M208 335Q216 341 225 334"/>
+    <path d="M196 316V322M233 316V322"/>
+    <rect x="583" y="296" width="67" height="57" rx="19" fill="#dce7f3"/>
+    <path d="M617 296V285M613 285H622"/>
+    <path d="M588 364Q617 353 645 366L653 388H577Z" fill="#dce7f3"/>
+    <path d="M591 388L588 398M642 388L645 398"/>
+    <path d="M598 316V322M633 316V322M607 335Q616 341 626 334"/>
+    <path d="M589 355L569 343M645 355L669 334"/>
+    <path d="M664 340L690 300"/>
+    <path d="M692 297L685 307" stroke="#7c97b5" stroke-width="7"/>
+    <rect x="477" y="304" width="81" height="77" rx="5" fill="#fff"/>
+    <path d="M489 321H541M489 337H512M525 337H542M489 353H511M525 353H541M489 369H542" stroke-width="2"/>
+    <rect x="972" y="296" width="67" height="57" rx="19" fill="#f6e5ca"/>
+    <path d="M1006 296V285M1002 285H1011"/>
+    <path d="M977 364Q1006 353 1034 366L1043 388H967Z" fill="#f6e5ca"/>
+    <path d="M981 388L978 398M1030 388L1033 398"/>
+    <path d="M987 316V322M1022 316V322M997 337L1012 335"/>
+    <path d="M978 355L958 347M1038 355L1064 346"/>
+    <circle cx="926" cy="321" r="29" fill="#faf9f5"/>
+    <path d="M946 343L968 365" stroke-width="7"/>
+    <path d="M913 321L923 330L938 311" stroke="#568369"/>
+    <path d="M1069 307L1123 304L1128 373L1075 376Z" fill="#fff"/>
+    <path d="M1081 322L1112 320M1083 337L1108 335M1085 353L1115 351" stroke-width="2"/>
+  </g>
+  <path d="M383 325H417" class="ink" marker-end="url(#arrow)"/>
+  <path d="M778 325H811" class="ink" marker-end="url(#arrow)"/>
+  <rect x="62" y="416" width="288" height="43" rx="6" fill="#edf3ee"/>
+  <text x="78" y="444" class="small">Parse · filter · tag paragraphs</text>
+  <rect x="456" y="415" width="290" height="44" rx="6" fill="#edf2f8"/>
+  <text x="474" y="443" class="small">Value + unit + source ID</text>
+  <rect x="850" y="415" width="290" height="44" rx="6" fill="#fbf1e2"/>
+  <text x="869" y="443" class="small">Check source · patch errors</text>
+  <path d="M994 486V522Q994 535 980 535H619Q601 535 601 520V487" class="ink" marker-end="url(#arrow)"/>
+  <rect x="653" y="520" width="289" height="29" rx="5" fill="#faf9f5"/>
+  <text x="675" y="541" class="small">Feedback + flagged papers</text>
+  <path d="M1145 486V606Q1145 618 1132 618H954" class="ink" marker-end="url(#arrow)"/>
+  <rect x="36" y="579" width="914" height="82" rx="10" fill="#fff" stroke="#232323" stroke-width="2.5"/>
+  <path d="M65 601H97V639H65ZM76 601V639M87 601V639M65 614H97M65 627H97" class="ink" stroke-width="2"/>
+  <text x="119" y="611" class="label">Processing Agent returns to finalize</text>
+  <text x="119" y="641" class="small">Enrich chemical identities · export structured records and audit status</text>
+  <text x="37" y="691" font-size="17" fill="#62615d">CONTROLLER / routes the work, carries feedback, and bounds the correction loop</text>
+</svg>

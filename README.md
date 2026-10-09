@@ -1,42 +1,64 @@
-# EDM-Agent
+<p align="center">
+  <img src="docs/workflow.svg" alt="Three agents prepare evidence, extract kinetics, and audit the records; feedback sends flagged papers back for correction." width="100%">
+</p>
 
-![EDM-Agent workflow](docs/banner.svg)
+<p align="center">
+  <a href="#how-the-team-works">The agents</a> ·
+  <a href="#design-choices">The design</a> ·
+  <a href="#the-photochemistry-corpus">The corpus</a> ·
+  <a href="#use-the-code">Get started</a> ·
+  <a href="https://huggingface.co/HJL-DLUT/EPSciBERT">EPSciBERT</a>
+</p>
 
-<p align="center"><a href="#run-the-system">Multi-agent system</a> · <a href="#train-a-kinetics-regressor">Kinetics modeling</a> · <a href="https://huggingface.co/HJL-DLUT/EPSciBERT">EPSciBERT</a></p>
+EDM-Agent turns aquatic photochemistry papers into structured kinetics records. Three agents divide the work: one prepares the evidence, one extracts the data, and one independently checks the draft against the paper. A controller carries corrections through the loop and coordinates the final export.
 
 Code accompanying **Self-Auditing Multi-Agent Data-Mining System for Transforming Decades of Environmental Photochemistry Literature into AI-Ready Datasets**.
 
-EDM-Agent converts aquatic photochemistry papers into structured environmental kinetics records. The system combines PDF parsing, relevance filtering, schema-constrained extraction, an independent auditing agent, targeted corrections, and spreadsheet export. This repository also contains the regression model definitions used for downstream kinetics modeling.
+## How the team works
 
-## Overview
+| Agent | Its job | What it passes on |
+| --- | --- | --- |
+| **Processing** | Parse papers, identify relevant passages, and tag source paragraphs. Return after auditing to enrich chemical identities and export the records. | Source-tagged text → structured spreadsheets |
+| **Extraction** | Read the prepared text and fill a typed schema for chemicals, irradiation conditions, water matrices, and kinetics. | A structured draft with values, units, and source IDs |
+| **Audit & Revision** | Read the original evidence alongside the draft, identify discrepancies, and propose specific changes. | Validated patches or correction feedback |
 
-The data-mining controller coordinates document processing, schema-constrained extraction, independent auditing, and targeted re-extraction. Every scientific record retains links to its source paragraphs.
+The audit has two correction routes. Small errors receive local patches. Larger problems send the affected papers back to extraction with explicit feedback. The controller bounds the number of iterations and preserves processing and audit status with the run outputs.
 
-```mermaid
-flowchart LR
-    A[Full-text papers] --> B[Document processing]
-    B --> C[Structured extraction]
-    C --> D[Independent audit]
-    D -->|Accepted| E[AI-ready database]
-    D -->|Correction feedback| C
-```
+## Design choices
 
-## Contents
+- **Keep the evidence attached.** Extracted fields carry paragraph IDs, so a result can be traced back to the text that supports it.
+- **Check meaning and structure separately.** The auditor compares the scientific content with the source; Pydantic checks field types and the record structure.
+- **Make corrections precise.** Stable experiment and data-point IDs locate each patch. Changes are applied to a working copy and validated before replacing the record.
+- **Spend retries where they matter.** Re-extraction targets flagged papers and receives the auditor's feedback. A bounded loop keeps the workflow manageable across a literature collection.
+
+## The photochemistry corpus
+
+The environmental photochemistry corpus was assembled from Web of Science searches completed on **22 August 2024**. The search covered photochemical processes in chemistry, environmental sciences and ecology, and public, environmental and occupational health, restricted to research articles.
+
+| Collection stage | Scale |
+| --- | ---: |
+| Search results | 270,361 records |
+| Unique publications with a DOI and abstract | 232,519 |
+| Acquired full-text articles | 178,166 |
+| Domain-pretraining text | ~4.51 billion characters |
+| SciBERT tokenizer tokens | ~1.07 billion |
+
+The full-text collection comprises **83,914 XML**, **56,506 HTML**, and **37,746 PDF** articles. Its publisher distribution is **Elsevier 83,914; Springer Nature 20,466; RSC 19,760; Wiley 18,154; other publishers 35,872**.
+
+The corpus covers photolysis, photodegradation, photochemical transformation, photosensitization, photooxidation, photoreduction, and related processes. Parsed article text supports continued masked-language-model pretraining of EPSciBERT. Character counts include spaces and line breaks; character and token totals are rounded values reported in the accompanying manuscript.
+
+## Use the code
 
 ```text
-system/
-  backend/                 Pipeline, agents, schemas, prompts, desktop bridge
-  frontend/                Desktop interface and bundled browser dependencies
-  data/00_input_pdfs/      Input PDF directory
-machine_learning/
-  models.py                Regression estimators and their original defaults
-  modeling.py              Training and prediction command-line interface
-  parameters.json          Endpoint model parameters
+system/backend/     Agents, controller, schemas, prompts, and desktop bridge
+system/frontend/    Desktop interface
+machine_learning/   Regression training, prediction, and endpoint parameters
 ```
 
-The application includes the extraction–audit feedback loop, evidence-bearing schemas, and the desktop interface. Regression training accepts prepared feature tables.
+<details>
+<summary><strong>Install and run the multi-agent system</strong></summary>
 
-## Install
+### Install
 
 Use Python 3.10–3.12. The desktop interface is primarily intended for Windows.
 
@@ -48,7 +70,7 @@ python -m pip install -r requirements.txt
 
 For the multi-agent application alone, install `system/backend/requirements.txt`. For regression modeling alone, install `machine_learning/requirements.txt`.
 
-## Configure the agents
+### Configure the agents
 
 ```powershell
 Copy-Item system/backend/.env.example system/backend/.env
@@ -68,7 +90,7 @@ Edit `system/backend/.env` and set `MINERU_API_TOKEN` for PDF parsing. Choose th
 
 ChemSpider and CompTox keys are optional enrichment settings. No credentials are distributed with the code. API request limits, worker counts, reasoning options, and structured-output settings can be configured in the same file.
 
-## Run the system
+### Run the system
 
 Place the input papers in `system/data/00_input_pdfs/`, then launch the desktop interface:
 
@@ -95,7 +117,13 @@ python system/backend/0_start.py --mode full
 
 Run-specific outputs are written under `system/data/runs/`. The final spreadsheet is in the run's `08_final_excel/` directory. The controller retains the extraction–audit feedback loop and pause/resume handling. Runtime summaries report processing status and API usage.
 
-## Train a kinetics regressor
+
+</details>
+
+<details>
+<summary><strong>Train and use a kinetics regressor</strong></summary>
+
+### Train a kinetics regressor
 
 Provide a prepared CSV containing numeric feature columns and a numeric target column, named `target_model` by default. Supply only the feature columns intended for fitting. Handle molecular descriptors, categorical encoding, missing values, and any scaling before passing the table to this entry point. The features used for prediction must have the same names, order, and transformations as the training features. For the kinetics endpoints, `target_model` is `log10(result_value)`.
 
@@ -121,10 +149,11 @@ The six regression families reported in the manuscript are Ridge, Random Forest,
 python machine_learning/modeling.py train --input prepared_train.csv --model random_forest --output outputs/model.joblib
 ```
 
+
+</details>
+
 ## EPSciBERT
 
-The companion [Hugging Face repository](https://huggingface.co/HJL-DLUT/EPSciBERT) contains the domain-adapted EPSciBERT masked-language-model checkpoint and tokenizer. It can supply BERT representations for downstream tasks.
+[EPSciBERT on Hugging Face](https://huggingface.co/HJL-DLUT/EPSciBERT) provides the environmental photochemistry domain-adapted masked-language-model checkpoint and tokenizer. It supplies language representations for downstream fine-tuning.
 
-## Third-party components
-
-The frontend bundles React, ReactDOM, Babel, Tailwind CSS, and Three.js. Their copyright and license notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The frontend's third-party copyright and license notices are collected in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
