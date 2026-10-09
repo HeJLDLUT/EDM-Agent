@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/workflow.svg" alt="Three agents prepare evidence, extract kinetics, and audit the records; feedback sends flagged papers back for correction." width="100%">
+  <img src="docs/workflow.png" alt="The Processing, Extraction, and Audit &amp; Revision agents share one workbench: they pass source-tagged evidence, fill a common record, and return corrections under a coordinating controller." width="100%">
 </p>
 
 <p align="center">
