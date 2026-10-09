@@ -97,7 +97,7 @@ Run-specific outputs are written under `system/data/runs/`. The final spreadshee
 
 ## Train a kinetics regressor
 
-Provide a prepared CSV containing numeric feature columns and a numeric target column, named `target_model` by default. Supply only the feature columns intended for fitting. Handle molecular descriptors, categorical encoding, missing values, and any scaling before passing the table to this entry point. The features used for prediction must have the same names, order, and transformations as the training features. For the archived kinetics endpoints, `target_model` is `log10(result_value)`.
+Provide a prepared CSV containing numeric feature columns and a numeric target column, named `target_model` by default. Supply only the feature columns intended for fitting. Handle molecular descriptors, categorical encoding, missing values, and any scaling before passing the table to this entry point. The features used for prediction must have the same names, order, and transformations as the training features. For the kinetics endpoints, `target_model` is `log10(result_value)`.
 
 ```powershell
 python machine_learning/modeling.py train --input prepared_hl_train.csv --endpoint hl --seed 42 --output outputs/hl_model.joblib
@@ -113,7 +113,7 @@ Prediction files contain `prediction_model`, in the same target scale used for t
 | `qy_new_log10` | Extra Trees |
 | `kp_augmented_hl` | XGBoost |
 
-Presets preserve the archived estimator parameters. Because this release accepts already transformed feature tables and omits the original preprocessing and evaluation pipeline, it does not by itself reproduce the manuscript's performance estimates.
+Endpoint presets use the selected estimator parameters supplied in parameters.json.
 
 The six regression families reported in the manuscript are Ridge, Random Forest, Extra Trees, LightGBM, XGBoost, and CatBoost. The estimator module also retains the source implementation’s Elastic Net and SVR options. To use an estimator's original defaults instead of an endpoint preset:
 
@@ -123,7 +123,7 @@ python machine_learning/modeling.py train --input prepared_train.csv --model ran
 
 ## EPSciBERT
 
-The companion [Hugging Face repository](https://huggingface.co/HJL-DLUT/EPSciBERT) contains the domain-adapted EPSciBERT masked-language-model checkpoint and tokenizer. It can supply BERT representations for downstream tasks. This checkpoint does not contain the trained binary screening classifier head.
+The companion [Hugging Face repository](https://huggingface.co/HJL-DLUT/EPSciBERT) contains the domain-adapted EPSciBERT masked-language-model checkpoint and tokenizer. It can supply BERT representations for downstream tasks.
 
 ## Third-party components
 
